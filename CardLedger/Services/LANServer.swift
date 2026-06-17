@@ -57,6 +57,44 @@ final class LANServer {
         self.payload = payload; self.csv = csv; self.pdf = pdf; self.photos = photos
     }
 
+    // MARK: Authorisation
+    // Browsers get a session cookie and must be approved in the app before they see
+    // anything. Until then they're served a "waiting for approval" page.
+
+    struct PendingDevice: Identifiable, Equatable { let id: String; let ip: String }
+    /// Devices waiting for the user to approve (observed by the UI, mutated on main).
+    private(set) var pendingDevices: [PendingDevice] = []
+
+    private var approvedSessions = Set<String>()   // lock-guarded
+    private var deniedSessions = Set<String>()     // lock-guarded
+    private var seenSessions = Set<String>()       // lock-guarded (dedupe prompts)
+
+    private enum AuthState: String { case approved, denied, pending }
+
+    private func authState(for sid: String, ip: String) -> AuthState {
+        lock.lock()
+        if approvedSessions.contains(sid) { lock.unlock(); return .approved }
+        if deniedSessions.contains(sid) { lock.unlock(); return .denied }
+        let isNew = seenSessions.insert(sid).inserted
+        lock.unlock()
+        if isNew {
+            DispatchQueue.main.async { [weak self] in
+                guard let self, !self.pendingDevices.contains(where: { $0.id == sid }) else { return }
+                self.pendingDevices.append(PendingDevice(id: sid, ip: ip))
+            }
+        }
+        return .pending
+    }
+
+    func approve(_ id: String) {
+        lock.lock(); approvedSessions.insert(id); lock.unlock()
+        pendingDevices.removeAll { $0.id == id }
+    }
+    func deny(_ id: String) {
+        lock.lock(); deniedSessions.insert(id); lock.unlock()
+        pendingDevices.removeAll { $0.id == id }
+    }
+
     // MARK: Lifecycle
 
     func start() {
@@ -99,9 +137,13 @@ final class LANServer {
     func stop() {
         listener?.cancel()
         listener = nil
+        lock.lock()
+        approvedSessions.removeAll(); deniedSessions.removeAll(); seenSessions.removeAll()
+        lock.unlock()
         DispatchQueue.main.async {
             self.isRunning = false
             self.activePort = 0
+            self.pendingDevices.removeAll()   // re-authorise after a restart
         }
     }
 
@@ -109,28 +151,40 @@ final class LANServer {
 
     private func accept(_ conn: NWConnection) {
         conn.start(queue: queue)
-        receive(conn, Data())
+        receive(conn, Data(), ip: Self.remoteIP(of: conn))
     }
 
     /// Accumulate bytes until a full HTTP request (headers + any body) has arrived.
-    private func receive(_ conn: NWConnection, _ buffer: Data) {
+    private func receive(_ conn: NWConnection, _ buffer: Data, ip: String) {
         conn.receive(minimumIncompleteLength: 1, maximumLength: 256 * 1024) { [weak self] data, _, isComplete, error in
             guard let self else { conn.cancel(); return }
             var buf = buffer
             if let data { buf.append(data) }
             if let parsed = self.parse(buf) {
-                let response = self.route(method: parsed.method, path: parsed.path, body: parsed.body)
+                let response = self.route(method: parsed.method, path: parsed.path, sid: parsed.sid, body: parsed.body, ip: ip)
                 conn.send(content: response, completion: .contentProcessed { _ in conn.cancel() })
             } else if isComplete || error != nil {
                 conn.cancel()
             } else {
-                self.receive(conn, buf)   // wait for the rest
+                self.receive(conn, buf, ip: ip)   // wait for the rest
             }
         }
     }
 
+    static func remoteIP(of conn: NWConnection) -> String {
+        if case let .hostPort(host, _) = conn.endpoint {
+            switch host {
+            case .ipv4(let a): return "\(a)".components(separatedBy: "%").first ?? "\(a)"
+            case .ipv6(let a): return "\(a)".components(separatedBy: "%").first ?? "\(a)"
+            case .name(let n, _): return n
+            @unknown default: return "a device"
+            }
+        }
+        return "a device"
+    }
+
     /// Parse a request once headers + full body are present, else return nil to wait.
-    private func parse(_ buffer: Data) -> (method: String, path: String, body: String)? {
+    private func parse(_ buffer: Data) -> (method: String, path: String, sid: String?, body: String)? {
         guard let text = String(data: buffer, encoding: .utf8),
               let headerEnd = text.range(of: "\r\n\r\n") else { return nil }
         let header = text[text.startIndex..<headerEnd.lowerBound]
@@ -142,15 +196,51 @@ final class LANServer {
         let path = String(parts[1]).removingPercentEncoding ?? String(parts[1])
 
         var contentLength = 0
-        for line in lines where line.lowercased().hasPrefix("content-length:") {
-            contentLength = Int(line.split(separator: ":")[1].trimmingCharacters(in: .whitespaces)) ?? 0
+        var sid: String?
+        for line in lines {
+            let lower = line.lowercased()
+            if lower.hasPrefix("content-length:") {
+                contentLength = Int(line.split(separator: ":")[1].trimmingCharacters(in: .whitespaces)) ?? 0
+            } else if lower.hasPrefix("cookie:") {
+                let cookies = line.drop(while: { $0 != ":" }).dropFirst()
+                for pair in cookies.split(separator: ";") {
+                    let kv = pair.split(separator: "=", maxSplits: 1)
+                    if kv.count == 2, kv[0].trimmingCharacters(in: .whitespaces) == "cl_sid" {
+                        sid = kv[1].trimmingCharacters(in: .whitespaces)
+                    }
+                }
+            }
         }
         let body = String(text[headerEnd.upperBound...])
         if body.utf8.count < contentLength { return nil }   // body still arriving
-        return (method, path, body)
+        return (method, path, sid, body)
     }
 
-    private func route(method: String, path: String, body: String) -> Data {
+    private func route(method: String, path: String, sid: String?, body: String, ip: String) -> Data {
+        // Resolve the browser's session; mint one (with a cookie) on first contact.
+        var setCookie: [String: String] = [:]
+        var session = sid ?? ""
+        if session.isEmpty {
+            session = UUID().uuidString
+            setCookie["Set-Cookie"] = "cl_sid=\(session); Path=/; Max-Age=86400; SameSite=Lax"
+        }
+        let state = authState(for: session, ip: ip)
+
+        // The waiting page polls this regardless of approval.
+        if path == "/api/auth-status" {
+            return response(contentType: "application/json; charset=utf-8",
+                            body: Data("{\"status\":\"\(state.rawValue)\"}".utf8), extra: setCookie)
+        }
+        // Gate everything else until approved.
+        guard state == .approved else {
+            if path == "/" || path == "/index.html" {
+                return response(contentType: "text/html; charset=utf-8",
+                                body: Data(WebUI.gatePage(denied: state == .denied).utf8), extra: setCookie)
+            }
+            return response(status: "403 Forbidden", contentType: "text/plain",
+                            body: Data("Awaiting approval in the CardLedger app.".utf8), extra: setCookie)
+        }
+
         if method == "POST", path.hasPrefix("/api/card/") {
             return handleEdit(action: String(path.dropFirst("/api/card/".count)), body: body)
         }

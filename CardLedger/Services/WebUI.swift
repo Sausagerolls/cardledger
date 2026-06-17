@@ -5,6 +5,58 @@ import Foundation
 /// detail panel, a live sale-price calculator, and full add/edit/delete that POST back to
 /// the phone.
 enum WebUI {
+    /// Shown to a browser until the user approves it in the app (or after a denial).
+    static func gatePage(denied: Bool) -> String {
+        let title = denied ? "Access denied" : "Waiting for approval"
+        let msg = denied
+            ? "The owner declined this device. You can close this tab."
+            : "Open CardLedger on the iPhone or iPad sharing this page and tap <b>Allow</b> to continue."
+        let mark = denied ? "🚫" : "<div class=\"spin\"></div>"
+        return #"""
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CardLedger</title>
+<style>
+  :root { --bg:#0a0712; --surface:rgba(255,255,255,.05); --text:#f5f0ff; --muted:#b8aed3; --accent:#6366f1; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+  .box { text-align:center; max-width:380px; padding:36px; background:var(--surface);
+    border:1px solid rgba(255,255,255,.08); border-radius:22px; }
+  h1 { font-size:22px; margin:18px 0 8px; }
+  p { color:var(--muted); line-height:1.5; }
+  .mark { font-size:46px; }
+  .spin { width:46px; height:46px; margin:0 auto; border:4px solid rgba(255,255,255,.15);
+    border-top-color:var(--accent); border-radius:50%; animation:spin 1s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .code { margin-top:20px; font-family:ui-monospace,monospace; color:var(--muted); font-size:13px; letter-spacing:.1em; }
+</style></head><body>
+  <div class="box">
+    <div class="mark">\#(mark)</div>
+    <h1>\#(title)</h1>
+    <p>\#(msg)</p>
+    <div class="code">CARDLEDGER</div>
+  </div>
+<script>
+  const DENIED = \#(denied ? "true" : "false");
+  async function poll(){
+    if(DENIED) return;
+    try{
+      const s = await (await fetch('/api/auth-status')).json();
+      if(s.status==='approved'){ location.reload(); return; }
+      if(s.status==='denied'){
+        document.querySelector('h1').textContent='Access denied';
+        document.querySelector('p').textContent='The owner declined this device.';
+        document.querySelector('.mark').innerHTML='🚫';
+        return;
+      }
+    }catch(e){}
+    setTimeout(poll,1500);
+  }
+  poll();
+</script></body></html>
+"""#
+    }
+
     static let page = #"""
 <!DOCTYPE html>
 <html lang="en">

@@ -12,6 +12,7 @@ struct ServerView: View {
     @Query(sort: \GameSystem.sortIndex) private var systems: [GameSystem]
 
     @State private var server = LANServer.shared
+    @State private var authDevice: LANServer.PendingDevice?
 
     private var url: String? {
         guard server.isRunning, let ip = LANServer.wifiIPAddress() else { return nil }
@@ -56,6 +57,23 @@ struct ServerView: View {
                     server.stop()
                     server.lastError = nil
                 }
+            }
+            .onChange(of: server.pendingDevices) { _, list in
+                if authDevice == nil { authDevice = list.first }
+            }
+            .alert("Allow this device?",
+                   isPresented: Binding(get: { authDevice != nil }, set: { if !$0 { authDevice = nil } }),
+                   presenting: authDevice) { device in
+                Button("Allow") {
+                    server.approve(device.id)
+                    authDevice = server.pendingDevices.first { $0.id != device.id }
+                }
+                Button("Deny", role: .destructive) {
+                    server.deny(device.id); authDevice = nil
+                }
+                Button("Later", role: .cancel) { authDevice = nil }
+            } message: { device in
+                Text("A browser at \(device.ip) wants to view and edit your inventory on this network.")
             }
             .onDisappear { /* keep server running across tabs */ }
         }
@@ -115,10 +133,10 @@ struct ServerView: View {
     private var infoCard: some View {
         SurfaceCard {
             VStack(alignment: .leading, spacing: Theme.spacing2) {
-                Label("Keep this app open", systemImage: "info.circle").font(.headline)
-                Text("iOS pauses apps in the background, so the page is available only while CardLedger is open on this device. The screen is kept awake while the server is on.")
+                Label("Approve each device", systemImage: "lock.shield").font(.headline)
+                Text("When a browser opens the address, it stays locked out until you tap Allow here — so nobody on the network can see your inventory without your OK.")
                     .font(.caption).foregroundStyle(Theme.textSecondary)
-                Text("Anyone on the same Wi-Fi can browse, add and edit your cards from the page — only share the address with people you trust.")
+                Text("Keep CardLedger open while sharing: iOS pauses background apps, so the page works only while the app is open. The screen stays awake while the server is on.")
                     .font(.caption).foregroundStyle(Theme.textSecondary)
             }
         }
