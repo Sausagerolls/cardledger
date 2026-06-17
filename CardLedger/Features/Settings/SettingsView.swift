@@ -76,7 +76,7 @@ struct SettingsView: View {
                             Label("Contact support", systemImage: "envelope")
                         }
                     }
-                    if let site = URL(string: "https://www.giantmushroom.studio/leger") {
+                    if let site = URL(string: "https://www.giantmushroom.studio/ledger") {
                         Link(destination: site) {
                             Label("Website", systemImage: "safari")
                         }

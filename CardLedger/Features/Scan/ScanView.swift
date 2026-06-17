@@ -18,16 +18,23 @@ struct ScanView: View {
         NavigationStack {
             VStack(spacing: Theme.spacing4) {
                 if cameraAvailable {
+                    // Flexible height: the camera fills the space above the code box and
+                    // shrinks (rather than getting shoved off-screen) when the keyboard shows.
                     QRScannerRepresentable { code in handleScanned(code) }
-                        .frame(maxWidth: .infinity).frame(height: 320)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLarge))
                         .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).stroke(Theme.accent, lineWidth: 3))
+                        .overlay(alignment: .bottom) {
+                            Text("Point the camera at a card's QR code")
+                                .font(.caption).foregroundStyle(.white)
+                                .padding(8).background(.black.opacity(0.4), in: Capsule())
+                                .padding(.bottom, 10)
+                        }
                         .padding(.horizontal, Theme.spacing4)
-                    Text("Point the camera at a card's QR code").font(.subheadline)
-                        .foregroundStyle(Theme.textSecondary)
                 } else {
                     EmptyStateView(icon: "camera.metering.unknown", title: "No camera",
                                    message: "Camera isn't available here. Enter a short code below to find a card.")
+                    Spacer(minLength: 0)
                 }
 
                 SurfaceCard {
@@ -44,10 +51,9 @@ struct ScanView: View {
                     }
                 }
                 .padding(.horizontal, Theme.spacing4)
-
-                Spacer()
             }
             .padding(.top, Theme.spacing4)
+            .padding(.bottom, Theme.spacing4)
             .background(Theme.background)
             .navigationTitle("Scan")
             .navigationDestination(item: $foundCard) { card in CardDetailView(card: card) }
