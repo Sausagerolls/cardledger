@@ -68,13 +68,25 @@ struct InventoryView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
-                        Button {
-                            exportCSV(filteredOnly: false)
-                        } label: { Label("Export all (\(cards.count))", systemImage: "square.and.arrow.up") }
-                        if filtered.count != cards.count {
+                        Section("Spreadsheet (CSV)") {
                             Button {
-                                exportCSV(filteredOnly: true)
-                            } label: { Label("Export shown (\(filtered.count))", systemImage: "line.3.horizontal.decrease") }
+                                exportCSV(filteredOnly: false)
+                            } label: { Label("All cards (\(cards.count))", systemImage: "tablecells") }
+                            if filtered.count != cards.count {
+                                Button {
+                                    exportCSV(filteredOnly: true)
+                                } label: { Label("Shown (\(filtered.count))", systemImage: "line.3.horizontal.decrease") }
+                            }
+                        }
+                        Section("QR codes for printing (PDF, 12/page)") {
+                            Button {
+                                exportQRSheet(filteredOnly: false)
+                            } label: { Label("All cards (\(cards.count))", systemImage: "qrcode") }
+                            if filtered.count != cards.count {
+                                Button {
+                                    exportQRSheet(filteredOnly: true)
+                                } label: { Label("Shown (\(filtered.count))", systemImage: "qrcode") }
+                            }
                         }
                     } label: {
                         Image(systemName: "square.and.arrow.up")
@@ -103,6 +115,16 @@ struct InventoryView: View {
         let rows = filteredOnly ? filtered : cards
         do {
             let url = try CSVExporter.writeTempFile(for: rows, currencyCode: settings.currencyCode)
+            exportFile = ExportFile(url: url)
+        } catch {
+            exportError = error.localizedDescription
+        }
+    }
+
+    private func exportQRSheet(filteredOnly: Bool) {
+        let rows = filteredOnly ? filtered : cards
+        do {
+            let url = try QRSheetExporter.makePDF(for: rows)
             exportFile = ExportFile(url: url)
         } catch {
             exportError = error.localizedDescription

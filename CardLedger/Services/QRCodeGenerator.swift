@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import CoreImage.CIFilterBuiltins
 
 /// Renders a crisp QR image for a card's short code. The payload is a deep link so a
@@ -25,5 +26,16 @@ enum QRCodeGenerator {
         guard let cg = context.createCGImage(transformed, from: transformed.extent) else { return nil }
         return Image(decorative: cg, scale: 1, orientation: .up)
             .interpolation(.none)
+    }
+
+    /// A `UIImage` QR for drawing into a PDF / print context (high-res, crisp).
+    static func uiImage(for shortCode: String, scale: CGFloat = 18) -> UIImage? {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(payload(for: shortCode).utf8)
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage else { return nil }
+        let transformed = output.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        guard let cg = context.createCGImage(transformed, from: transformed.extent) else { return nil }
+        return UIImage(cgImage: cg)
     }
 }

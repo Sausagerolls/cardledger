@@ -14,6 +14,15 @@ struct CardLedgerApp: App {
         if ProcessInfo.processInfo.arguments.contains("-seedSample") {
             PersistenceController.seedSampleCards(container.mainContext)
         }
+        if ProcessInfo.processInfo.arguments.contains("-dumpQRPDF") {
+            PersistenceController.seedSampleCards(container.mainContext)
+            if let cards = try? container.mainContext.fetch(FetchDescriptor<Card>()),
+               let url = try? QRSheetExporter.makePDF(for: cards) {
+                let dest = URL.documentsDirectory.appendingPathComponent("qr.pdf")
+                try? FileManager.default.removeItem(at: dest)
+                try? FileManager.default.copyItem(at: url, to: dest)
+            }
+        }
         #endif
     }
 
