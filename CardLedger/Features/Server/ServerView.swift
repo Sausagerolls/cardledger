@@ -169,7 +169,8 @@ struct ServerView: View {
         for c in cards { photos[c.shortCode] = c.sortedPhotos.map(\.imageData) }
 
         let csv = CSVExporter.csvString(for: cards, currencyCode: settings.currencyCode)
-        server.updateData(payload: data, csv: csv, photos: photos)
+        let pdf = (try? QRSheetExporter.makePDF(for: cards)).flatMap { try? Data(contentsOf: $0) } ?? Data()
+        server.updateData(payload: data, csv: csv, pdf: pdf, photos: photos)
     }
 
     // MARK: Browser edits (runs on the main thread; only uses `context`)

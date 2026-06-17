@@ -49,11 +49,12 @@ final class LANServer {
     private let lock = NSLock()
     private var payload = Data("{}".utf8)
     private var csv = ""
+    private var pdf = Data()                      // QR sheet for printing
     private var photos: [String: [Data]] = [:]   // shortCode -> [jpeg]
 
-    func updateData(payload: Data, csv: String, photos: [String: [Data]]) {
+    func updateData(payload: Data, csv: String, pdf: Data, photos: [String: [Data]]) {
         lock.lock(); defer { lock.unlock() }
-        self.payload = payload; self.csv = csv; self.photos = photos
+        self.payload = payload; self.csv = csv; self.pdf = pdf; self.photos = photos
     }
 
     // MARK: Lifecycle
@@ -160,6 +161,9 @@ final class LANServer {
         case path == "/export.csv":
             return response(contentType: "text/csv; charset=utf-8", body: Data(csv.utf8),
                             extra: ["Content-Disposition": "attachment; filename=\"CardLedger-Inventory.csv\""])
+        case path == "/qr-sheet.pdf":
+            return response(contentType: "application/pdf", body: pdf,
+                            extra: ["Content-Disposition": "attachment; filename=\"CardLedger-QR-Sheet.pdf\""])
         case path.hasPrefix("/photo/"):
             return photoResponse(path)
         default:

@@ -10,9 +10,12 @@ struct InventoryView: View {
 
     @State private var searchText = ""
     @State private var selectedSystem: GameSystem?
+    @State private var statusFilter: StatusFilter = .all
     @State private var showAddCard = false
     @State private var exportFile: ExportFile?
     @State private var exportError: String?
+
+    enum StatusFilter: String, CaseIterable { case all = "All", inStock = "In stock", sold = "Sold" }
 
     private let columns = [GridItem(.adaptive(minimum: 160), spacing: Theme.spacing3)]
 
@@ -25,7 +28,13 @@ struct InventoryView: View {
                 || card.shortCode.lowercased().contains(q)        // unique instance code
                 || card.cardNumber.lowercased().contains(q)       // printed code on the card
                 || card.setName.lowercased().contains(q)
-            return matchesSystem && matchesSearch
+            let matchesStatus: Bool
+            switch statusFilter {
+            case .all: matchesStatus = true
+            case .inStock: matchesStatus = !card.isSold
+            case .sold: matchesStatus = card.isSold
+            }
+            return matchesSystem && matchesSearch && matchesStatus
         }
     }
 
@@ -40,6 +49,12 @@ struct InventoryView: View {
                     )
                 } else {
                     ScrollView {
+                        Picker("Status", selection: $statusFilter) {
+                            ForEach(StatusFilter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        .padding(.horizontal, Theme.spacing4)
+                        .padding(.top, Theme.spacing2)
                         systemFilterBar
                         if filtered.isEmpty {
                             EmptyStateView(icon: "magnifyingglass", title: "No matches",

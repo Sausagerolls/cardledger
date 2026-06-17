@@ -65,6 +65,11 @@ enum WebUI {
   .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--text); color:var(--bg);
            padding:12px 20px; border-radius:12px; font-weight:600; opacity:0; transition:opacity .25s; z-index:50; }
   .toast.show { opacity:1; }
+  .filterbar { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; align-items:center; }
+  .fpill { padding:7px 13px; border-radius:999px; border:1px solid var(--line); background:var(--surface);
+           color:var(--text); font-size:13px; font-weight:600; cursor:pointer; }
+  .fpill.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .fsep { width:1px; height:22px; background:var(--line); margin:0 4px; }
 </style>
 </head>
 <body>
@@ -74,8 +79,10 @@ enum WebUI {
   <span class="grow"></span>
   <button class="btn" onclick="openAdd()">+ Add card</button>
   <a class="btn secondary" href="/export.csv">Export CSV</a>
+  <a class="btn secondary" href="/qr-sheet.pdf">QR sheet</a>
 </header>
 <main>
+  <div class="filterbar" id="filterbar"></div>
   <div id="grid" class="grid"></div>
   <div id="empty" class="empty" style="display:none">No cards yet — add one.</div>
 </main>
@@ -87,6 +94,7 @@ enum WebUI {
 
 <script>
 let DATA = { settings:{}, cards:[], games:[] };
+let GAME='all', STATUS='all';
 const CONDS = [['M','Mint'],['NM','Near Mint'],['LP','Lightly Played'],['MP','Moderately Played'],
                ['HP','Heavily Played'],['DMG','Damaged'],['GRADED','Graded / Slabbed']];
 const money = v => new Intl.NumberFormat(undefined,{style:'currency',currency:(DATA.settings.currency||'GBP')}).format(v||0);
@@ -98,10 +106,27 @@ function salePrice(cost, profitPct){
   const sale=net*(1+vat); return {sale,vat:sale-net,profit:net-cost};
 }
 
+function fpill(label,active,onclick){const b=document.createElement('button');b.className='fpill'+(active?' active':'');b.textContent=label;b.onclick=onclick;return b;}
+function renderFilters(){
+  const fb=document.getElementById('filterbar'); fb.innerHTML='';
+  [['all','All'],['stock','In stock'],['sold','Sold']].forEach(([v,l])=>
+    fb.appendChild(fpill(l,STATUS===v,()=>{STATUS=v;renderFilters();render();})));
+  const sep=document.createElement('div'); sep.className='fsep'; fb.appendChild(sep);
+  fb.appendChild(fpill('All games',GAME==='all',()=>{GAME='all';renderFilters();render();}));
+  const codes=[...new Set(DATA.cards.map(c=>c.gameCode).filter(Boolean))];
+  DATA.games.filter(g=>codes.includes(g.code)).forEach(g=>
+    fb.appendChild(fpill(g.name,GAME===g.code,()=>{GAME=g.code;renderFilters();render();})));
+}
+
 function render(){
   const q=document.getElementById('search').value.toLowerCase().trim();
   const grid=document.getElementById('grid'); grid.innerHTML='';
-  const cards=DATA.cards.filter(c=>!q||c.name.toLowerCase().includes(q)||c.shortCode.toLowerCase().includes(q)||(c.number||'').toLowerCase().includes(q)||(c.setName||'').toLowerCase().includes(q));
+  const cards=DATA.cards.filter(c=>{
+    if(STATUS==='sold' && !c.isSold) return false;
+    if(STATUS==='stock' && c.isSold) return false;
+    if(GAME!=='all' && (c.gameCode||'')!==GAME) return false;
+    return !q||c.name.toLowerCase().includes(q)||c.shortCode.toLowerCase().includes(q)||(c.number||'').toLowerCase().includes(q)||(c.setName||'').toLowerCase().includes(q);
+  });
   document.getElementById('empty').style.display=cards.length?'none':'block';
   for(const c of cards){
     const img=c.photoCount>0?`<img src="/photo/${encodeURIComponent(c.shortCode)}/0">`:`<div class="ph">🂠</div>`;
@@ -218,7 +243,7 @@ function closeSheet(){ document.getElementById('overlay').classList.remove('open
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
 
 document.getElementById('search').addEventListener('input', render);
-async function load(){ try{ DATA=await (await fetch('/api/cards')).json(); render(); }catch(e){ document.getElementById('empty').style.display='block'; } }
+async function load(){ try{ DATA=await (await fetch('/api/cards')).json(); renderFilters(); render(); }catch(e){ document.getElementById('empty').style.display='block'; } }
 load();
 setInterval(()=>{ if(!document.getElementById('overlay').classList.contains('open')) load(); }, 5000);
 </script>
