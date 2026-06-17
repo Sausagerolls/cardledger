@@ -5,6 +5,7 @@ import SwiftData
 /// navigation stack. A deep link (`cardledger://card/<code>`) opens the matching card.
 struct RootView: View {
     @Environment(\.modelContext) private var context
+    @Environment(SettingsStore.self) private var settings
     @State private var selectedTab: Tab = {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-startServer") { return .desktop }
@@ -12,6 +13,7 @@ struct RootView: View {
         return .inventory
     }()
     @State private var deepLinkedCard: Card?
+    @State private var showOnboarding = false
 
     enum Tab { case inventory, scan, desktop, settings }
 
@@ -36,6 +38,12 @@ struct RootView: View {
         .onOpenURL { url in handleDeepLink(url) }
         .sheet(item: $deepLinkedCard) { card in
             NavigationStack { CardDetailView(card: card) }
+        }
+        .fullScreenCover(isPresented: $showOnboarding) {
+            OnboardingView { showOnboarding = false }.environment(settings)
+        }
+        .task {
+            if !settings.hasCompletedOnboarding { showOnboarding = true }
         }
         .onAppear {
             #if DEBUG

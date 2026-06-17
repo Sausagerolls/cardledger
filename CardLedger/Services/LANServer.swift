@@ -75,9 +75,12 @@ final class LANServer {
                         self.isRunning = true
                         self.lastError = nil
                     }
-                case .failed(let error):
+                case .failed:
+                    // Most failures here are the network being torn down when the app is
+                    // sent to the background, or a Wi-Fi change — not something the user
+                    // did wrong. Show a plain-English message rather than a raw error.
                     DispatchQueue.main.async {
-                        self.lastError = error.localizedDescription
+                        self.lastError = "The desktop server stopped because the connection changed — usually the app going to the background or switching Wi-Fi. Switch it back on to keep sharing."
                         self.isRunning = false
                     }
                     self.stop()

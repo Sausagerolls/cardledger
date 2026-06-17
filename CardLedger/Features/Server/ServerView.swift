@@ -7,6 +7,7 @@ import UIKit
 struct ServerView: View {
     @Environment(SettingsStore.self) private var settings
     @Environment(\.modelContext) private var context
+    @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \Card.createdAt, order: .reverse) private var cards: [Card]
     @Query(sort: \GameSystem.sortIndex) private var systems: [GameSystem]
 
@@ -47,6 +48,14 @@ struct ServerView: View {
             .onChange(of: server.isRunning) { _, running in
                 UIApplication.shared.isIdleTimerDisabled = running   // keep awake while serving
                 if running { pushData() }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                // iOS suspends the app (and tears down its network) in the background, so
+                // stop the server cleanly before that happens — no scary error, just off.
+                if phase != .active && server.isRunning {
+                    server.stop()
+                    server.lastError = nil
+                }
             }
             .onDisappear { /* keep server running across tabs */ }
         }

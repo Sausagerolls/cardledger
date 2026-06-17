@@ -20,18 +20,24 @@ enum PersistenceController {
             return try! ModelContainer(for: schema, configurations: config)
         }
 
-        // 1) Preferred: CloudKit-mirrored store (real iCloud backup).
-        do {
-            let cloud = ModelConfiguration(schema: schema, cloudKitDatabase: .automatic)
-            return try ModelContainer(for: schema, configurations: cloud)
-        } catch {
-            // 2) Fallback: local-only store (Simulator / no entitlement).
-            #if DEBUG
-            print("⚠️ CloudKit container unavailable, using local store: \(error.localizedDescription)")
-            #endif
-            let local = ModelConfiguration(schema: schema, cloudKitDatabase: .none)
-            return try! ModelContainer(for: schema, configurations: local)
+        // The user's iCloud preference (default on). Read here so this stays free of any
+        // SettingsStore dependency; changing it applies at the next launch.
+        let useCloud = UserDefaults.standard.object(forKey: SettingsStore.iCloudSyncKey) as? Bool ?? true
+
+        if useCloud {
+            // Preferred: CloudKit-mirrored store (real iCloud backup).
+            do {
+                let cloud = ModelConfiguration(schema: schema, cloudKitDatabase: .automatic)
+                return try ModelContainer(for: schema, configurations: cloud)
+            } catch {
+                #if DEBUG
+                print("⚠️ CloudKit container unavailable, using local store: \(error.localizedDescription)")
+                #endif
+            }
         }
+        // Local-only store (user disabled iCloud, or CloudKit unavailable in the Simulator).
+        let local = ModelConfiguration(schema: schema, cloudKitDatabase: .none)
+        return try! ModelContainer(for: schema, configurations: local)
     }
 
     /// Seed the default game systems once, if none exist yet.

@@ -7,6 +7,7 @@ struct SettingsView: View {
 
     @State private var exportFile: ExportFile?
     @State private var exportError: String?
+    @State private var showOnboarding = false
 
     private let currencies = ["GBP", "USD", "EUR", "JPY", "AUD", "CAD"]
 
@@ -62,10 +63,21 @@ struct SettingsView: View {
                         .font(.caption).foregroundStyle(Theme.textSecondary)
                 }
 
-                Section("iCloud") {
+                Section {
+                    Toggle("iCloud sync & backup", isOn: $settings.iCloudSyncEnabled)
                     LabeledValue(label: "Cards stored", value: "\(cards.count)")
-                    Text("Your cards and photos back up automatically to your private iCloud when the app is signed with iCloud enabled.")
-                        .font(.caption).foregroundStyle(Theme.textSecondary)
+                } header: {
+                    Text("iCloud")
+                } footer: {
+                    Text("Backs up your cards and photos to your private iCloud and keeps them in sync across your devices. Turning this off keeps everything on this device only. Changes take effect next time you open the app.")
+                }
+
+                Section("Help") {
+                    Button {
+                        showOnboarding = true
+                    } label: {
+                        Label("Show tutorial again", systemImage: "questionmark.circle")
+                    }
                 }
 
                 Section("About") {
@@ -86,6 +98,9 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .sheet(item: $exportFile) { file in
                 ShareSheet(items: [file.url])
+            }
+            .fullScreenCover(isPresented: $showOnboarding) {
+                OnboardingView { showOnboarding = false }.environment(settings)
             }
             .alert("Export failed", isPresented: .constant(exportError != nil)) {
                 Button("OK") { exportError = nil }

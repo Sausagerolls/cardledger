@@ -15,6 +15,14 @@ final class SettingsStore {
     }
     /// Optional API key for the card-database auto-fill provider.
     var cardApiKey: String { didSet { defaults.set(cardApiKey, forKey: Keys.apiKey) } }
+    /// Whether the data store mirrors to the user's private iCloud. Read at launch to
+    /// build the model container (see `PersistenceController`); changes apply next launch.
+    var iCloudSyncEnabled: Bool { didSet { defaults.set(iCloudSyncEnabled, forKey: Keys.icloud) } }
+    /// First-run onboarding completion.
+    var hasCompletedOnboarding: Bool { didSet { defaults.set(hasCompletedOnboarding, forKey: Keys.onboarded) } }
+
+    /// The key `PersistenceController` reads (no SettingsStore instance needed there).
+    static let iCloudSyncKey = "settings.iCloudSyncEnabled"
 
     private let defaults: UserDefaults
 
@@ -25,6 +33,8 @@ final class SettingsStore {
         self.defaultProfitPercent = defaults.object(forKey: Keys.profit) as? Double ?? 10
         self.taxMethod = TaxMethod(rawValue: defaults.string(forKey: Keys.method) ?? "") ?? .fullPrice
         self.cardApiKey = defaults.string(forKey: Keys.apiKey) ?? ""
+        self.iCloudSyncEnabled = defaults.object(forKey: Keys.icloud) as? Bool ?? true
+        self.hasCompletedOnboarding = defaults.bool(forKey: Keys.onboarded)
     }
 
     var vatRate: Decimal { Decimal(vatPercent) / 100 }
@@ -44,5 +54,7 @@ final class SettingsStore {
         static let profit = "settings.defaultProfitPercent"
         static let method = "settings.taxMethod"
         static let apiKey = "settings.cardApiKey"
+        static let icloud = SettingsStore.iCloudSyncKey
+        static let onboarded = "settings.hasCompletedOnboarding"
     }
 }
