@@ -22,7 +22,8 @@ struct InventoryView: View {
             let q = searchText.trimmingCharacters(in: .whitespaces).lowercased()
             let matchesSearch = q.isEmpty
                 || card.name.lowercased().contains(q)
-                || card.shortCode.lowercased().contains(q)
+                || card.shortCode.lowercased().contains(q)        // unique instance code
+                || card.cardNumber.lowercased().contains(q)       // printed code on the card
                 || card.setName.lowercased().contains(q)
             return matchesSystem && matchesSearch
         }
@@ -160,15 +161,16 @@ struct CardTile: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(card.name.isEmpty ? "Untitled card" : card.name)
                     .font(.cardTitle).lineLimit(1)
-                Text(card.shortCode).font(.mono).foregroundStyle(Theme.textSecondary)
+                if !card.cardNumber.isEmpty {
+                    Text(card.cardNumber).font(.caption2).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                }
+                Text(card.shortCode).font(.mono).foregroundStyle(Theme.accent)  // unique code (the QR)
                 HStack {
                     Text(settings.money(card.purchasePrice))
                         .font(.subheadline.weight(.bold)).foregroundStyle(Theme.gold)
                     Spacer()
                     if card.isSold {
                         StatChip(title: "Sold", tint: Theme.profit)
-                    } else if card.quantity > 1 {
-                        StatChip(title: "×\(card.quantity)", tint: Theme.accent)
                     }
                 }
             }

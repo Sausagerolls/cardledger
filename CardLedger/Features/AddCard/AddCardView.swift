@@ -143,13 +143,21 @@ struct AddCardView: View {
     }
 
     private var priceSection: some View {
-        Section("Purchase") {
+        Section {
             HStack {
                 Text(settings.currencyCode)
                 TextField("Price paid", text: $priceText).keyboardType(.decimalPad)
             }
-            Stepper("Quantity: \(quantity)", value: $quantity, in: 1...999)
             DatePicker("Date", selection: $purchaseDate, displayedComponents: .date)
+            if editing == nil {
+                Stepper("Copies to add: \(quantity)", value: $quantity, in: 1...99)
+            }
+        } header: {
+            Text("Purchase")
+        } footer: {
+            if editing == nil && quantity > 1 {
+                Text("Each copy is logged separately with its own unique code and QR, so you can track and sell them individually.")
+            }
         }
     }
 
@@ -209,42 +217,60 @@ struct AddCardView: View {
     private func save() {
         guard let system = selectedSystem else { return }
         let priceMinor = Self.minorUnits(from: priceText)
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        let datas = images.compactMap { $0.jpegData(compressionQuality: 0.8) }
 
-        // Edit existing, or create new (keeping its short code stable on edit).
-        let card: Card
         if let editing {
-            card = editing
-        } else {
-            let code = ShortCodeGenerator.makeUnique(prefix: system.code, in: context)
-            card = Card(shortCode: code, name: "", gameSystem: system,
-                        purchasePriceMinor: 0, purchaseDate: purchaseDate, quantity: quantity)
-            context.insert(card)
+            // Editing a single instance — keep its unique code stable.
+            write(to: editing, system: system, priceMinor: priceMinor, name: trimmedName)
+            for old in editing.photos ?? [] { context.delete(old) }
+            editing.photos = []
+            attach(datas, to: editing)
+            try? context.save()
+            dismiss()
+            return
         }
 
-        card.name = name.trimmingCharacters(in: .whitespaces)
+        // Create one record per physical copy, each with its own unique code + QR,
+        // so multiples of the same card can be tracked and sold individually.
+        let copies = max(quantity, 1)
+        var usedCodes = Set<String>()
+        for _ in 0..<copies {
+            var code = ShortCodeGenerator.makeUnique(prefix: system.code, in: context)
+            while usedCodes.contains(code) { code = ShortCodeGenerator.make(prefix: system.code) }
+            usedCodes.insert(code)
+
+            let card = Card(shortCode: code, name: trimmedName, gameSystem: system,
+                            purchasePriceMinor: priceMinor, purchaseDate: purchaseDate, quantity: 1)
+            write(to: card, system: system, priceMinor: priceMinor, name: trimmedName)
+            context.insert(card)
+            attach(datas, to: card)
+        }
+        try? context.save()
+        dismiss()
+    }
+
+    /// Write the scalar fields onto a card (an instance is always quantity 1).
+    private func write(to card: Card, system: GameSystem, priceMinor: Int, name: String) {
+        card.name = name
         card.gameSystem = system
         card.purchasePriceMinor = priceMinor
         card.purchaseDate = purchaseDate
-        card.quantity = quantity
+        card.quantity = 1
         card.setName = setName
         card.cardNumber = cardNumber
         card.rarity = rarity
         card.condition = condition
         card.notes = notes
         card.externalImageURL = externalImageURL
+    }
 
-        // Replace photos with the current set (handles adds and removals).
-        for old in card.photos ?? [] { context.delete(old) }
-        card.photos = []
-        for (index, img) in images.enumerated() {
-            if let data = img.jpegData(compressionQuality: 0.8) {
-                let photo = CardPhoto(imageData: data, sortIndex: index)
-                photo.card = card
-                context.insert(photo)
-            }
+    private func attach(_ datas: [Data], to card: Card) {
+        for (index, data) in datas.enumerated() {
+            let photo = CardPhoto(imageData: data, sortIndex: index)
+            photo.card = card
+            context.insert(photo)
         }
-        try? context.save()
-        dismiss()
     }
 
     /// Parse user-entered price ("12.50") into integer minor units (1250).

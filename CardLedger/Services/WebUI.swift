@@ -101,7 +101,7 @@ function salePrice(cost, profitPct){
 function render(){
   const q=document.getElementById('search').value.toLowerCase().trim();
   const grid=document.getElementById('grid'); grid.innerHTML='';
-  const cards=DATA.cards.filter(c=>!q||c.name.toLowerCase().includes(q)||c.shortCode.toLowerCase().includes(q)||(c.setName||'').toLowerCase().includes(q));
+  const cards=DATA.cards.filter(c=>!q||c.name.toLowerCase().includes(q)||c.shortCode.toLowerCase().includes(q)||(c.number||'').toLowerCase().includes(q)||(c.setName||'').toLowerCase().includes(q));
   document.getElementById('empty').style.display=cards.length?'none':'block';
   for(const c of cards){
     const img=c.photoCount>0?`<img src="/photo/${encodeURIComponent(c.shortCode)}/0">`:`<div class="ph">🂠</div>`;
