@@ -68,8 +68,19 @@ struct SettingsView: View {
                         .font(.caption).foregroundStyle(Theme.textSecondary)
                 }
 
-                Section {
+                Section("About") {
                     LabeledValue(label: "Version", value: "1.0")
+                    LabeledValue(label: "Made by", value: "Giant Mushroom Studio")
+                    if let mail = URL(string: "mailto:contact@giantmushroom.studio") {
+                        Link(destination: mail) {
+                            Label("Contact support", systemImage: "envelope")
+                        }
+                    }
+                    if let site = URL(string: "https://www.giantmushroom.studio/leger") {
+                        Link(destination: site) {
+                            Label("Website", systemImage: "safari")
+                        }
+                    }
                 }
             }
             .navigationTitle("Settings")
