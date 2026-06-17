@@ -28,6 +28,7 @@ struct InventoryView: View {
                 || card.shortCode.lowercased().contains(q)        // unique instance code
                 || card.cardNumber.lowercased().contains(q)       // printed code on the card
                 || card.setName.lowercased().contains(q)
+                || card.tags.contains { $0.lowercased().contains(q) }
             let matchesStatus: Bool
             switch statusFilter {
             case .all: matchesStatus = true

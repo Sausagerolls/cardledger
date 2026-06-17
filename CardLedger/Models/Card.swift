@@ -27,6 +27,9 @@ final class Card {
     var salePriceMinor: Int = 0
     var soldDate: Date?
 
+    /// Free-form tags the user adds, e.g. "Japanese", "Graded", "For trade".
+    var tags: [String] = []
+
     /// Remote image URL filled in by a card-database lookup (optional).
     var externalImageURL: String = ""
 

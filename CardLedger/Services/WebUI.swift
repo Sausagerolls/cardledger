@@ -177,7 +177,7 @@ function render(){
     if(STATUS==='sold' && !c.isSold) return false;
     if(STATUS==='stock' && c.isSold) return false;
     if(GAME!=='all' && (c.gameCode||'')!==GAME) return false;
-    return !q||c.name.toLowerCase().includes(q)||c.shortCode.toLowerCase().includes(q)||(c.number||'').toLowerCase().includes(q)||(c.setName||'').toLowerCase().includes(q);
+    return !q||c.name.toLowerCase().includes(q)||c.shortCode.toLowerCase().includes(q)||(c.number||'').toLowerCase().includes(q)||(c.setName||'').toLowerCase().includes(q)||(c.tags||[]).some(t=>t.toLowerCase().includes(q));
   });
   document.getElementById('empty').style.display=cards.length?'none':'block';
   for(const c of cards){
@@ -206,6 +206,7 @@ function openCard(code){
       <div class="row"><span class="l">Paid</span><span style="color:var(--gold);font-weight:700">${money(c.purchasePrice)}</span></div>
       <div class="row"><span class="l">Quantity</span><span>${c.quantity}</span></div>
       <div class="row"><span class="l">Purchased</span><span>${esc(c.purchaseDate||'')}</span></div>
+      ${(c.tags&&c.tags.length)?`<div class="row"><span class="l">Tags</span><span>${c.tags.map(t=>`<span class="pill" style="margin-left:4px">${esc(t)}</span>`).join('')}</span></div>`:''}
       ${c.notes?`<div class="row"><span class="l">Notes</span><span>${esc(c.notes)}</span></div>`:''}
     </div>
     <div class="card">
@@ -245,12 +246,14 @@ function formFields(c){
     <div class="frow"><div><label class="f">Price paid (${esc(DATA.settings.currency||'GBP')})</label><input class="f" id="f_price" type="number" step="0.01" value="${c.purchasePrice||0}"></div>
       <div><label class="f">Quantity</label><input class="f" id="f_qty" type="number" min="1" value="${c.quantity||1}"></div></div>
     <label class="f">Purchase date</label><input class="f" id="f_date" type="date" value="${c.purchaseISO||''}">
+    <label class="f">Tags (comma separated)</label><input class="f" id="f_tags" value="${esc((c.tags||[]).join(', '))}" placeholder="e.g. Japanese, Graded">
     <label class="f">Notes</label><textarea class="f" id="f_notes" rows="2">${esc(c.notes||'')}</textarea>`;
 }
 function readForm(){
   return { name:val('f_name'), setName:val('f_set'), number:val('f_num'), rarity:val('f_rar'),
-    condition:val('f_cond'), rarity:val('f_rar'), quantity:+val('f_qty')||1,
-    purchasePrice:+val('f_price')||0, purchaseDate:val('f_date'), notes:val('f_notes') };
+    condition:val('f_cond'), quantity:+val('f_qty')||1,
+    purchasePrice:+val('f_price')||0, purchaseDate:val('f_date'),
+    tags:val('f_tags').split(',').map(t=>t.trim()).filter(Boolean), notes:val('f_notes') };
 }
 const val=id=>{const e=document.getElementById(id); return e?e.value:'';};
 

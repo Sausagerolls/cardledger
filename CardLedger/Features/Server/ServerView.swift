@@ -178,6 +178,7 @@ struct ServerView: View {
                 isSold: c.isSold,
                 salePrice: NSDecimalNumber(decimal: c.salePrice).doubleValue,
                 soldDate: c.soldDate.map { df.string(from: $0) },
+                tags: c.tags,
                 notes: c.notes,
                 photoCount: c.sortedPhotos.count
             )
@@ -252,6 +253,7 @@ struct ServerView: View {
         if let v = r.purchasePrice { card.purchasePriceMinor = Self.minor(v) }
         if let v = r.purchaseDate, let d = Self.date(v) { card.purchaseDate = d }
         if let v = r.notes { card.notes = v }
+        if let v = r.tags { card.tags = v.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
         if let v = r.isSold {
             card.isSold = v
             if v, card.soldDate == nil { card.soldDate = Date() }
@@ -301,6 +303,7 @@ private struct WebCard: Encodable {
     let isSold: Bool
     let salePrice: Double
     let soldDate: String?
+    let tags: [String]
     let notes: String
     let photoCount: Int
 }

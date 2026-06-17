@@ -15,6 +15,7 @@ struct EditRequest: Decodable {
     var purchasePrice: Double?
     var purchaseDate: String?   // "yyyy-MM-dd"
     var notes: String?
+    var tags: [String]?
     var isSold: Bool?
     var salePrice: Double?
 }

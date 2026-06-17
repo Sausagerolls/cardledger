@@ -7,7 +7,7 @@ enum CSVExporter {
     private static let columns = [
         "Short Code", "Game", "Name", "Set", "Card Number", "Rarity", "Condition",
         "Quantity", "Purchase Price", "Currency", "Purchase Date",
-        "Sold", "Sale Price", "Sold Date", "Notes"
+        "Sold", "Sale Price", "Sold Date", "Tags", "Notes"
     ]
 
     static func csvString(for cards: [Card], currencyCode: String) -> String {
@@ -31,6 +31,7 @@ enum CSVExporter {
                 c.isSold ? "Yes" : "No",
                 c.isSold ? decimalString(c.salePrice) : "",
                 c.soldDate.map { df.string(from: $0) } ?? "",
+                c.tags.joined(separator: "; "),
                 c.notes
             ]
             rows.append(fields.map(escape).joined(separator: ","))

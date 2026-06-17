@@ -78,6 +78,7 @@ enum PersistenceController {
                             purchaseDate: Date(), quantity: i == 1 ? 3 : 1)
             card.setName = s.1; card.cardNumber = s.2; card.condition = s.4
             card.rarity = i == 2 ? "Secret Rare" : "Super Rare"
+            card.tags = i == 2 ? ["Japanese", "Graded"] : ["English"]
             context.insert(card)
         }
         try? context.save()

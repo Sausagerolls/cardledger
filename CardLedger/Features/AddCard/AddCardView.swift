@@ -24,6 +24,8 @@ struct AddCardView: View {
     @State private var quantity = 1
     @State private var purchaseDate = Date()
     @State private var notes = ""
+    @State private var tags: [String] = []
+    @State private var tagInput = ""
     @State private var selectedSystem: GameSystem?
     @State private var externalImageURL = ""
 
@@ -42,6 +44,7 @@ struct AddCardView: View {
                 gameSection
                 detailsSection
                 priceSection
+                tagsSection
                 notesSection
             }
             .navigationTitle(editing == nil ? "New Card" : "Edit Card")
@@ -161,6 +164,51 @@ struct AddCardView: View {
         }
     }
 
+    private var tagsSection: some View {
+        Section {
+            if !tags.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Theme.spacing2) {
+                        ForEach(tags, id: \.self) { tag in
+                            Button { tags.removeAll { $0 == tag } } label: {
+                                HStack(spacing: 4) {
+                                    Text(tag)
+                                    Image(systemName: "xmark.circle.fill")
+                                }
+                                .font(.footnote.weight(.semibold))
+                                .padding(.horizontal, 10).padding(.vertical, 6)
+                                .background(Theme.accent.opacity(0.14), in: Capsule())
+                                .foregroundStyle(Theme.accent)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+            HStack {
+                TextField("Add a tag (e.g. Japanese, Graded)", text: $tagInput)
+                    .autocorrectionDisabled()
+                    .onSubmit(addTag)
+                Button("Add", action: addTag)
+                    .disabled(tagInput.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        } header: {
+            Text("Tags")
+        } footer: {
+            Text("Use tags for things like language, grading or anything you want to filter by later.")
+        }
+    }
+
+    private func addTag() {
+        let t = tagInput.trimmingCharacters(in: .whitespaces)
+        guard !t.isEmpty, !tags.contains(where: { $0.caseInsensitiveCompare(t) == .orderedSame }) else {
+            tagInput = ""; return
+        }
+        tags.append(t)
+        tagInput = ""
+    }
+
     private var notesSection: some View {
         Section("Notes") {
             TextField("Optional notes", text: $notes, axis: .vertical).lineLimit(2...5)
@@ -190,6 +238,7 @@ struct AddCardView: View {
         quantity = max(card.quantity, 1)
         purchaseDate = card.purchaseDate
         notes = card.notes
+        tags = card.tags
         selectedSystem = card.gameSystem ?? systems.first
         externalImageURL = card.externalImageURL
         images = card.sortedPhotos.compactMap { UIImage(data: $0.imageData) }
@@ -215,6 +264,7 @@ struct AddCardView: View {
     }
 
     private func save() {
+        addTag()   // include any tag typed but not yet added
         guard let system = selectedSystem else { return }
         let priceMinor = Self.minorUnits(from: priceText)
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
@@ -262,6 +312,7 @@ struct AddCardView: View {
         card.rarity = rarity
         card.condition = condition
         card.notes = notes
+        card.tags = tags
         card.externalImageURL = externalImageURL
     }
 

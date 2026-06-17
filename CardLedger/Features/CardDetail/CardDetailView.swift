@@ -97,6 +97,13 @@ struct CardDetailView: View {
                     Text([card.setName, card.cardNumber, card.rarity].filter { !$0.isEmpty }.joined(separator: " · "))
                         .font(.subheadline).foregroundStyle(Theme.textSecondary)
                 }
+                if !card.tags.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: Theme.spacing2) {
+                            ForEach(card.tags, id: \.self) { StatChip(icon: "tag", title: $0, tint: Theme.accentSoft) }
+                        }
+                    }
+                }
                 Divider()
                 LabeledValue(label: "Paid", value: settings.money(card.purchasePrice), valueColor: Theme.gold)
                 LabeledValue(label: "Purchased", value: card.purchaseDate.formatted(date: .abbreviated, time: .omitted))
