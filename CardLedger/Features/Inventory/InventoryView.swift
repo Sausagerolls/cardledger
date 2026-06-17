@@ -14,6 +14,8 @@ struct InventoryView: View {
     @State private var showAddCard = false
     @State private var exportFile: ExportFile?
     @State private var exportError: String?
+    @State private var isSelecting = false
+    @State private var selection = Set<PersistentIdentifier>()
 
     enum StatusFilter: String, CaseIterable { case all = "All", inStock = "In stock", sold = "Sold" }
 
@@ -64,12 +66,20 @@ struct InventoryView: View {
                         } else {
                             LazyVGrid(columns: columns, spacing: Theme.spacing3) {
                                 ForEach(filtered) { card in
-                                    NavigationLink {
-                                        CardDetailView(card: card)
-                                    } label: {
-                                        CardTile(card: card).environment(settings)
+                                    if isSelecting {
+                                        Button { toggle(card) } label: {
+                                            CardTile(card: card).environment(settings)
+                                                .overlay(alignment: .topLeading) { selectionMark(card) }
+                                        }
+                                        .buttonStyle(.plain)
+                                    } else {
+                                        NavigationLink {
+                                            CardDetailView(card: card)
+                                        } label: {
+                                            CardTile(card: card).environment(settings)
+                                        }
+                                        .buttonStyle(.plain)
                                     }
-                                    .buttonStyle(.plain)
                                 }
                             }
                             .padding(.horizontal, Theme.spacing4)
@@ -79,41 +89,48 @@ struct InventoryView: View {
                 }
             }
             .background(Theme.background)
-            .navigationTitle("Inventory")
+            .navigationTitle(isSelecting ? "\(selection.count) selected" : "Inventory")
+            .navigationBarTitleDisplayMode(isSelecting ? .inline : .large)
             .searchable(text: $searchText, prompt: "Search name or short code")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Section("Spreadsheet (CSV)") {
+                    if isSelecting {
+                        Button(selection.count == filtered.count ? "Clear" : "Select all") { selectAllToggle() }
+                    } else {
+                        Menu {
                             Button {
-                                exportCSV(filteredOnly: false)
-                            } label: { Label("All cards (\(cards.count))", systemImage: "tablecells") }
-                            if filtered.count != cards.count {
-                                Button {
-                                    exportCSV(filteredOnly: true)
-                                } label: { Label("Shown (\(filtered.count))", systemImage: "line.3.horizontal.decrease") }
+                                isSelecting = true; selection = []
+                            } label: { Label("Choose cards to export…", systemImage: "checkmark.circle") }
+                            Section("Spreadsheet (CSV)") {
+                                Button { exportCSV(cards) } label: { Label("All cards (\(cards.count))", systemImage: "tablecells") }
+                                if filtered.count != cards.count {
+                                    Button { exportCSV(filtered) } label: { Label("Shown (\(filtered.count))", systemImage: "line.3.horizontal.decrease") }
+                                }
                             }
-                        }
-                        Section("QR codes for printing (PDF, 12/page)") {
-                            Button {
-                                exportQRSheet(filteredOnly: false)
-                            } label: { Label("All cards (\(cards.count))", systemImage: "qrcode") }
-                            if filtered.count != cards.count {
-                                Button {
-                                    exportQRSheet(filteredOnly: true)
-                                } label: { Label("Shown (\(filtered.count))", systemImage: "qrcode") }
+                            Section("QR codes for printing (PDF, 12/page)") {
+                                Button { exportQRSheet(cards) } label: { Label("All cards (\(cards.count))", systemImage: "qrcode") }
+                                if filtered.count != cards.count {
+                                    Button { exportQRSheet(filtered) } label: { Label("Shown (\(filtered.count))", systemImage: "qrcode") }
+                                }
                             }
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
                         }
-                    } label: {
-                        Image(systemName: "square.and.arrow.up")
+                        .disabled(cards.isEmpty)
+                        .accessibilityLabel("Export inventory")
                     }
-                    .disabled(cards.isEmpty)
-                    .accessibilityLabel("Export inventory")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showAddCard = true } label: { Image(systemName: "plus") }
-                        .accessibilityLabel("Add card")
+                    if isSelecting {
+                        Button("Done") { isSelecting = false; selection = [] }
+                    } else {
+                        Button { showAddCard = true } label: { Image(systemName: "plus") }
+                            .accessibilityLabel("Add card")
+                    }
                 }
+            }
+            .safeAreaInset(edge: .bottom) {
+                if isSelecting { selectionBar }
             }
             .sheet(isPresented: $showAddCard) {
                 AddCardView().environment(settings)
@@ -127,24 +144,54 @@ struct InventoryView: View {
         }
     }
 
-    private func exportCSV(filteredOnly: Bool) {
-        let rows = filteredOnly ? filtered : cards
-        do {
-            let url = try CSVExporter.writeTempFile(for: rows, currencyCode: settings.currencyCode)
-            exportFile = ExportFile(url: url)
-        } catch {
-            exportError = error.localizedDescription
-        }
+    private func exportCSV(_ rows: [Card]) {
+        guard !rows.isEmpty else { return }
+        do { exportFile = ExportFile(url: try CSVExporter.writeTempFile(for: rows, currencyCode: settings.currencyCode)) }
+        catch { exportError = error.localizedDescription }
     }
 
-    private func exportQRSheet(filteredOnly: Bool) {
-        let rows = filteredOnly ? filtered : cards
-        do {
-            let url = try QRSheetExporter.makePDF(for: rows)
-            exportFile = ExportFile(url: url)
-        } catch {
-            exportError = error.localizedDescription
+    private func exportQRSheet(_ rows: [Card]) {
+        guard !rows.isEmpty else { return }
+        do { exportFile = ExportFile(url: try QRSheetExporter.makePDF(for: rows)) }
+        catch { exportError = error.localizedDescription }
+    }
+
+    // MARK: Selection
+
+    private var selectedCards: [Card] { filtered.filter { selection.contains($0.persistentModelID) } }
+
+    private func toggle(_ card: Card) {
+        let id = card.persistentModelID
+        if selection.contains(id) { selection.remove(id) } else { selection.insert(id) }
+    }
+
+    private func selectAllToggle() {
+        if selection.count == filtered.count { selection = [] }
+        else { selection = Set(filtered.map(\.persistentModelID)) }
+    }
+
+    private func selectionMark(_ card: Card) -> some View {
+        let on = selection.contains(card.persistentModelID)
+        return Image(systemName: on ? "checkmark.circle.fill" : "circle")
+            .font(.title3)
+            .foregroundStyle(on ? Theme.accent : .white, on ? .white : .black.opacity(0.35))
+            .padding(8)
+    }
+
+    private var selectionBar: some View {
+        HStack(spacing: Theme.spacing3) {
+            Button { exportQRSheet(selectedCards) } label: {
+                Label("QR sheet", systemImage: "qrcode").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            Button { exportCSV(selectedCards) } label: {
+                Label("CSV", systemImage: "tablecells").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
         }
+        .disabled(selection.isEmpty)
+        .padding(Theme.spacing3)
+        .background(.bar)
     }
 
     private var systemFilterBar: some View {
