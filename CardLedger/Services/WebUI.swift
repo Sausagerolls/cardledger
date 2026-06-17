@@ -146,7 +146,7 @@ enum WebUI {
 
 <script>
 let DATA = { settings:{}, cards:[], games:[] };
-let GAME='all', STATUS='all';
+let GAME='all', STATUS='all', TAG='all';
 const CONDS = [['M','Mint'],['NM','Near Mint'],['LP','Lightly Played'],['MP','Moderately Played'],
                ['HP','Heavily Played'],['DMG','Damaged'],['GRADED','Graded / Slabbed']];
 const money = v => new Intl.NumberFormat(undefined,{style:'currency',currency:(DATA.settings.currency||'GBP')}).format(v||0);
@@ -168,6 +168,12 @@ function renderFilters(){
   const codes=[...new Set(DATA.cards.map(c=>c.gameCode).filter(Boolean))];
   DATA.games.filter(g=>codes.includes(g.code)).forEach(g=>
     fb.appendChild(fpill(g.name,GAME===g.code,()=>{GAME=g.code;renderFilters();render();})));
+  const tags=[...new Set(DATA.cards.flatMap(c=>c.tags||[]))].sort((a,b)=>a.localeCompare(b));
+  if(tags.length){
+    const s2=document.createElement('div'); s2.className='fsep'; fb.appendChild(s2);
+    fb.appendChild(fpill('All tags',TAG==='all',()=>{TAG='all';renderFilters();render();}));
+    tags.forEach(t=>fb.appendChild(fpill('🏷 '+t,TAG===t,()=>{TAG=t;renderFilters();render();})));
+  }
 }
 
 function render(){
@@ -177,6 +183,7 @@ function render(){
     if(STATUS==='sold' && !c.isSold) return false;
     if(STATUS==='stock' && c.isSold) return false;
     if(GAME!=='all' && (c.gameCode||'')!==GAME) return false;
+    if(TAG!=='all' && !(c.tags||[]).includes(TAG)) return false;
     return !q||c.name.toLowerCase().includes(q)||c.shortCode.toLowerCase().includes(q)||(c.number||'').toLowerCase().includes(q)||(c.setName||'').toLowerCase().includes(q)||(c.tags||[]).some(t=>t.toLowerCase().includes(q));
   });
   document.getElementById('empty').style.display=cards.length?'none':'block';

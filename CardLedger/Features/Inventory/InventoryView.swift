@@ -10,6 +10,7 @@ struct InventoryView: View {
 
     @State private var searchText = ""
     @State private var selectedSystem: GameSystem?
+    @State private var selectedTag: String?
     @State private var statusFilter: StatusFilter = .all
     @State private var showAddCard = false
     @State private var exportFile: ExportFile?
@@ -37,8 +38,14 @@ struct InventoryView: View {
             case .inStock: matchesStatus = !card.isSold
             case .sold: matchesStatus = card.isSold
             }
-            return matchesSystem && matchesSearch && matchesStatus
+            let matchesTag = selectedTag == nil || card.tags.contains(selectedTag!)
+            return matchesSystem && matchesSearch && matchesStatus && matchesTag
         }
+    }
+
+    /// All distinct tags in the inventory, for the tag filter bar.
+    private var allTags: [String] {
+        Array(Set(cards.flatMap(\.tags))).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
     var body: some View {
@@ -59,6 +66,7 @@ struct InventoryView: View {
                         .padding(.horizontal, Theme.spacing4)
                         .padding(.top, Theme.spacing2)
                         systemFilterBar
+                        if !allTags.isEmpty { tagFilterBar }
                         if filtered.isEmpty {
                             EmptyStateView(icon: "magnifyingglass", title: "No matches",
                                            message: "Nothing matches your search or filter.")
@@ -218,6 +226,32 @@ struct InventoryView: View {
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 14).padding(.vertical, 8)
                 .background(isSelected ? Theme.accent : Theme.surface, in: Capsule())
+                .foregroundStyle(isSelected ? .white : Theme.textPrimary)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var tagFilterBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Theme.spacing2) {
+                tagPill(title: "All tags", tag: nil)
+                ForEach(allTags, id: \.self) { tagPill(title: $0, tag: $0) }
+            }
+            .padding(.horizontal, Theme.spacing4)
+            .padding(.bottom, Theme.spacing2)
+        }
+    }
+
+    private func tagPill(title: String, tag: String?) -> some View {
+        let isSelected = selectedTag == tag
+        return Button {
+            withAnimation(.snappy) { selectedTag = tag }
+        } label: {
+            Label(title, systemImage: tag == nil ? "tag" : "tag.fill")
+                .labelStyle(.titleAndIcon)
+                .font(.footnote.weight(.semibold))
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .background(isSelected ? Theme.accentSoft : Theme.surface, in: Capsule())
                 .foregroundStyle(isSelected ? .white : Theme.textPrimary)
         }
         .buttonStyle(.plain)
