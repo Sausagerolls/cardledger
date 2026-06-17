@@ -1,0 +1,107 @@
+import SwiftUI
+import SwiftData
+
+struct SettingsView: View {
+    @Environment(SettingsStore.self) private var settings
+    @Query private var cards: [Card]
+
+    @State private var exportFile: ExportFile?
+    @State private var exportError: String?
+
+    private let currencies = ["GBP", "USD", "EUR", "JPY", "AUD", "CAD"]
+
+    var body: some View {
+        @Bindable var settings = settings
+        NavigationStack {
+            Form {
+                Section("Tax & pricing") {
+                    Picker("Currency", selection: $settings.currencyCode) {
+                        ForEach(currencies, id: \.self) { Text($0).tag($0) }
+                    }
+                    HStack {
+                        Text("VAT rate")
+                        Spacer()
+                        TextField("20", value: $settings.vatPercent, format: .number)
+                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 70)
+                        Text("%").foregroundStyle(Theme.textSecondary)
+                    }
+                    HStack {
+                        Text("Default profit")
+                        Spacer()
+                        TextField("10", value: $settings.defaultProfitPercent, format: .number)
+                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 70)
+                        Text("%").foregroundStyle(Theme.textSecondary)
+                    }
+                    Picker("Tax method", selection: $settings.taxMethod) {
+                        ForEach(TaxMethod.allCases) { Text($0.label).tag($0) }
+                    }
+                }
+
+                Section {
+                    pricingExample
+                } header: {
+                    Text("Example")
+                } footer: {
+                    Text("Sale price for a card bought at \(settings.money(100)) at your default profit and VAT.")
+                }
+
+                Section("Card auto-fill") {
+                    Text("Dragon Ball, Magic and Yu-Gi-Oh! auto-fill with no setup. Pokémon works too; a free pokemontcg.io key just raises the rate limit.")
+                        .font(.caption).foregroundStyle(Theme.textSecondary)
+                    SecureField("Pokémon API key (optional)", text: $settings.cardApiKey)
+                }
+
+                Section("Data") {
+                    Button {
+                        exportCSV()
+                    } label: {
+                        Label("Export inventory as CSV", systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(cards.isEmpty)
+                    Text("Spreadsheet of all \(cards.count) cards — opens in Numbers, Excel or Google Sheets.")
+                        .font(.caption).foregroundStyle(Theme.textSecondary)
+                }
+
+                Section("iCloud") {
+                    LabeledValue(label: "Cards stored", value: "\(cards.count)")
+                    Text("Your cards and photos back up automatically to your private iCloud when the app is signed with iCloud enabled.")
+                        .font(.caption).foregroundStyle(Theme.textSecondary)
+                }
+
+                Section {
+                    LabeledValue(label: "Version", value: "1.0")
+                }
+            }
+            .navigationTitle("Settings")
+            .sheet(item: $exportFile) { file in
+                ShareSheet(items: [file.url])
+            }
+            .alert("Export failed", isPresented: .constant(exportError != nil)) {
+                Button("OK") { exportError = nil }
+            } message: { Text(exportError ?? "") }
+        }
+    }
+
+    private func exportCSV() {
+        do {
+            let url = try CSVExporter.writeTempFile(for: cards, currencyCode: settings.currencyCode)
+            exportFile = ExportFile(url: url)
+        } catch {
+            exportError = error.localizedDescription
+        }
+    }
+
+    private var pricingExample: some View {
+        let result = PricingEngine.compute(PricingInput(
+            cost: 100,
+            profitMargin: settings.defaultProfitMargin,
+            vatRate: settings.vatRate,
+            method: settings.taxMethod
+        ))
+        return VStack(spacing: 6) {
+            LabeledValue(label: "List at", value: settings.money(result.salePrice), valueColor: Theme.accent)
+            LabeledValue(label: "VAT", value: settings.money(result.vatAmount))
+            LabeledValue(label: "Profit", value: settings.money(result.grossProfit), valueColor: Theme.profit)
+        }
+    }
+}

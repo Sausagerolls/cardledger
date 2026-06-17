@@ -1,0 +1,54 @@
+name: CardLedger
+options:
+  bundleIdPrefix: com.cardledger
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: "J4UJD4Z33J"
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_EMIT_LOC_STRINGS: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+targets:
+  CardLedger:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: CardLedger
+    info:
+      path: CardLedger/Support/Info.plist
+      properties:
+        CFBundleDisplayName: CardLedger
+        UILaunchScreen: {}
+        NSCameraUsageDescription: "Used to scan card QR codes and photograph your cards."
+        NSPhotoLibraryUsageDescription: "Used to attach photos of your cards from your photo library."
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        ITSAppUsesNonExemptEncryption: false
+        CFBundleURLTypes:
+          - CFBundleURLName: com.giantmushroom.cardledger
+            CFBundleURLSchemes: [cardledger]
+        NSLocalNetworkUsageDescription: "Lets you view your inventory from a browser on another computer on the same Wi-Fi."
+        NSBonjourServices:
+          - _http._tcp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.giantmushroom.cardledger
+        PRODUCT_NAME: CardLedger
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
