@@ -3,14 +3,9 @@
 <plist version="1.0">
 <dict>
     <!--
-      iCloud / CloudKit backup.
-      To activate (one-time, needs your paid Apple Developer team):
-        1. Open CardLedger.xcodeproj in Xcode.
-        2. Target → Signing & Capabilities → select your Team.
-        3. + Capability → iCloud → tick "CloudKit" → container: iCloud.$(CFBundleIdentifier)
-        4. + Capability → Background Modes → tick "Remote notifications".
-      Xcode then writes/links this entitlements file and provisions the container.
-      PersistenceController already prefers the CloudKit store, so sync turns on automatically.
+      iCloud / CloudKit backup for SwiftData. The App ID has the iCloud capability
+      enabled; the CloudKit container below must exist before a signed build can sign
+      (create it once via Xcode's Signing & Capabilities or the CloudKit Console).
     -->
     <key>com.apple.developer.icloud-container-identifiers</key>
     <array>
@@ -20,9 +15,5 @@
     <array>
         <string>CloudKit</string>
     </array>
-    <key>com.apple.developer.ubiquity-kvstore-identifier</key>
-    <string>$(TeamIdentifierPrefix)com.giantmushroom.cardledger</string>
-    <key>aps-environment</key>
-    <string>development</string>
 </dict>
 </plist>
