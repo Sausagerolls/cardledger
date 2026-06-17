@@ -3,15 +3,17 @@
 Inventory + pricing app for trading-card traders. Log cards with photos and a purchase
 price; instantly see the sale price for any profit target with tax factored in. Built for
 Dragon Ball Fusion World first, but multi-system from day one. Native iOS/iPadOS with
-iCloud backup; a Windows web companion is planned (Phase 2).
+iCloud backup, and a built-in local web server so you can browse and edit your inventory
+from any computer's browser on the same Wi-Fi.
 
 ## Status
 
-- ✅ Phase 1 native app builds and runs (iOS 17+, iPhone + iPad).
-- ✅ Inventory, add-card (photos), card detail, live pricing calculator, settings,
-  short-code + QR, in-app QR scanning, deep links.
-- ⚙️ iCloud sync: code is in place; enable the capability once (see below).
-- 🔜 Phase 2: Windows web app via CloudKit Web Services.
+- ✅ Native app (iOS 17+, iPhone + iPad): inventory, add/edit cards with photos,
+  per-instance unique codes + QR, live pricing calculator, settings, onboarding.
+- ✅ In-app QR scanning, deep links, QR-sheet printing (A4, 12/page), CSV export.
+- ✅ Desktop access: on-device web server (Bonjour) — view/add/edit from a browser on
+  the same network, with CSV + QR-sheet download.
+- ✅ iCloud sync/backup (toggle in Settings).
 
 ## Build & run
 
@@ -85,10 +87,9 @@ optional key). Manual entry always works.
 
 The **Desktop** tab starts a small on-device web server (Network framework + Bonjour) that
 serves the inventory to any browser on the same Wi-Fi at `http://<ip>:8080` /
-`cardledger.local:8080`. The browser can **view, add, edit and delete** cards and download a
-CSV. It runs only while the app is foreground (iOS suspends background apps), on the local
-network. For always-on access from anywhere, a hosted [CloudKit Web Services](https://developer.apple.com/documentation/cloudkitjs)
-companion reading the same iCloud data is the future route.
+`cardledger.local:8080`. The browser can **view, add, edit and delete** cards, filter by
+game/sold, and download a CSV or the QR print sheet. It runs only while the app is
+foreground (iOS suspends background apps), on the local network.
 
 ## Source availability & licence
 

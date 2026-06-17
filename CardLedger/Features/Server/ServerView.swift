@@ -118,7 +118,7 @@ struct ServerView: View {
                 Label("Keep this app open", systemImage: "info.circle").font(.headline)
                 Text("iOS pauses apps in the background, so the page is available only while CardLedger is open on this device. The screen is kept awake while the server is on.")
                     .font(.caption).foregroundStyle(Theme.textSecondary)
-                Text("This is a read-only view for the same network. For always-on access from anywhere, iCloud sync (a web companion) is the route.")
+                Text("Anyone on the same Wi-Fi can browse, add and edit your cards from the page — only share the address with people you trust.")
                     .font(.caption).foregroundStyle(Theme.textSecondary)
             }
         }
