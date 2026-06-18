@@ -205,10 +205,12 @@ struct InventoryView: View {
     private var systemFilterBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Theme.spacing2) {
-                filterPill(title: "All", system: nil)
+                chip("All", selected: selectedSystem == nil, tint: Theme.accent) { selectedSystem = nil }
                 ForEach(systems) { system in
-                    if (system.cards?.isEmpty == false) {
-                        filterPill(title: system.code, system: system)
+                    if system.cards?.isEmpty == false {
+                        chip(system.code,
+                             selected: selectedSystem?.persistentModelID == system.persistentModelID,
+                             tint: Theme.accent) { selectedSystem = system }
                     }
                 }
             }
@@ -217,44 +219,30 @@ struct InventoryView: View {
         }
     }
 
-    private func filterPill(title: String, system: GameSystem?) -> some View {
-        let isSelected = selectedSystem?.persistentModelID == system?.persistentModelID
-        return Button {
-            withAnimation(.snappy) { selectedSystem = system }
-        } label: {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 14).padding(.vertical, 8)
-                .background(isSelected ? Theme.accent : Theme.surface, in: Capsule())
-                .foregroundStyle(isSelected ? .white : Theme.textPrimary)
-        }
-        .buttonStyle(.plain)
-    }
-
     private var tagFilterBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Theme.spacing2) {
-                tagPill(title: "All tags", tag: nil)
-                ForEach(allTags, id: \.self) { tagPill(title: $0, tag: $0) }
+                chip("All tags", selected: selectedTag == nil, tint: Theme.accentSoft) { selectedTag = nil }
+                ForEach(allTags, id: \.self) { tag in
+                    chip(tag, selected: selectedTag == tag, tint: Theme.accentSoft) { selectedTag = tag }
+                }
             }
             .padding(.horizontal, Theme.spacing4)
             .padding(.bottom, Theme.spacing2)
         }
     }
 
-    private func tagPill(title: String, tag: String?) -> some View {
-        let isSelected = selectedTag == tag
-        return Button {
-            withAnimation(.snappy) { selectedTag = tag }
-        } label: {
-            Label(title, systemImage: tag == nil ? "tag" : "tag.fill")
-                .labelStyle(.titleAndIcon)
-                .font(.footnote.weight(.semibold))
-                .padding(.horizontal, 12).padding(.vertical, 7)
-                .background(isSelected ? Theme.accentSoft : Theme.surface, in: Capsule())
-                .foregroundStyle(isSelected ? .white : Theme.textPrimary)
-        }
-        .buttonStyle(.plain)
+    /// A filter pill. Uses a tap gesture with an explicit hit shape — Buttons inside a
+    /// horizontal ScrollView nested in the vertical grid ScrollView can mis-route taps to
+    /// the cards below; this doesn't.
+    private func chip(_ title: String, selected: Bool, tint: Color, action: @escaping () -> Void) -> some View {
+        Text(title)
+            .font(.subheadline.weight(.semibold))
+            .padding(.horizontal, 14).padding(.vertical, 8)
+            .background(selected ? tint : Theme.surface, in: Capsule())
+            .foregroundStyle(selected ? .white : Theme.textPrimary)
+            .contentShape(Capsule())
+            .onTapGesture { withAnimation(.snappy, action) }
     }
 }
 

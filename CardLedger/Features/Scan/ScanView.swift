@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import AVFoundation
+import UIKit
 
 /// Find a card by scanning its QR (real device) or typing its short code (works anywhere,
 /// including the Simulator which has no camera).
@@ -9,33 +10,21 @@ struct ScanView: View {
     @State private var manualCode = ""
     @State private var foundCard: Card?
     @State private var notFound = false
+    @State private var camStatus = AVCaptureDevice.authorizationStatus(for: .video)
 
-    private var cameraAvailable: Bool {
-        AVCaptureDevice.default(for: .video) != nil
+    private func requestCameraIfNeeded() {
+        guard camStatus == .notDetermined else { return }
+        AVCaptureDevice.requestAccess(for: .video) { granted in
+            DispatchQueue.main.async {
+                camStatus = granted ? .authorized : .denied
+            }
+        }
     }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: Theme.spacing4) {
-                if cameraAvailable {
-                    // Flexible height: the camera fills the space above the code box and
-                    // shrinks (rather than getting shoved off-screen) when the keyboard shows.
-                    QRScannerRepresentable { code in handleScanned(code) }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLarge))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).stroke(Theme.accent, lineWidth: 3))
-                        .overlay(alignment: .bottom) {
-                            Text("Point the camera at a card's QR code")
-                                .font(.caption).foregroundStyle(.white)
-                                .padding(8).background(.black.opacity(0.4), in: Capsule())
-                                .padding(.bottom, 10)
-                        }
-                        .padding(.horizontal, Theme.spacing4)
-                } else {
-                    EmptyStateView(icon: "camera.metering.unknown", title: "No camera",
-                                   message: "Camera isn't available here. Enter a short code below to find a card.")
-                    Spacer(minLength: 0)
-                }
+                cameraSection
 
                 SurfaceCard {
                     VStack(alignment: .leading, spacing: Theme.spacing2) {
@@ -56,10 +45,44 @@ struct ScanView: View {
             .padding(.bottom, Theme.spacing4)
             .background(Theme.background)
             .navigationTitle("Scan")
+            .onAppear(perform: requestCameraIfNeeded)
             .navigationDestination(item: $foundCard) { card in CardDetailView(card: card) }
             .alert("No card found", isPresented: $notFound) {
                 Button("OK", role: .cancel) {}
             } message: { Text("No card matches that code.") }
+        }
+    }
+
+    @ViewBuilder private var cameraSection: some View {
+        switch camStatus {
+        case .authorized:
+            // Flexible height: the camera fills the space above the code box and shrinks
+            // (rather than getting shoved off-screen) when the keyboard shows.
+            QRScannerRepresentable { code in handleScanned(code) }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.radiusLarge))
+                .overlay(RoundedRectangle(cornerRadius: Theme.radiusLarge).stroke(Theme.accent, lineWidth: 3))
+                .overlay(alignment: .bottom) {
+                    Text("Point the camera at a card's QR code")
+                        .font(.caption).foregroundStyle(.white)
+                        .padding(8).background(.black.opacity(0.4), in: Capsule())
+                        .padding(.bottom, 10)
+                }
+                .padding(.horizontal, Theme.spacing4)
+        case .denied, .restricted:
+            VStack(spacing: Theme.spacing3) {
+                EmptyStateView(icon: "camera.fill", title: "Camera access off",
+                               message: "Allow camera access to scan QR codes, or find a card by its short code below.")
+                Button("Open Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                }
+                .buttonStyle(.bordered)
+            }
+            Spacer(minLength: 0)
+        default:
+            EmptyStateView(icon: "camera.metering.unknown", title: "Camera unavailable",
+                           message: "Enter a short code below to find a card.")
+            Spacer(minLength: 0)
         }
     }
 
@@ -99,16 +122,22 @@ final class QRScannerController: UIViewController, AVCaptureMetadataOutputObject
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        view.backgroundColor = .black
         guard let device = AVCaptureDevice.default(for: .video),
-              let input = try? AVCaptureDeviceInput(device: device),
-              session.canAddInput(input) else { return }
-        session.addInput(input)
+              let input = try? AVCaptureDeviceInput(device: device) else { return }
 
+        session.beginConfiguration()
+        if session.canAddInput(input) { session.addInput(input) }
         let output = AVCaptureMetadataOutput()
-        guard session.canAddOutput(output) else { return }
-        session.addOutput(output)
-        output.setMetadataObjectsDelegate(self, queue: .main)
-        output.metadataObjectTypes = [.qr]
+        if session.canAddOutput(output) {
+            session.addOutput(output)
+            output.setMetadataObjectsDelegate(self, queue: .main)
+            // Only request types the output actually supports (else this throws).
+            if output.availableMetadataObjectTypes.contains(.qr) {
+                output.metadataObjectTypes = [.qr]
+            }
+        }
+        session.commitConfiguration()
 
         let preview = AVCaptureVideoPreviewLayer(session: session)
         preview.videoGravity = .resizeAspectFill
@@ -116,6 +145,11 @@ final class QRScannerController: UIViewController, AVCaptureMetadataOutputObject
         self.preview = preview
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in self?.session.startRunning() }
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        if session.isRunning { DispatchQueue.global(qos: .userInitiated).async { [weak self] in self?.session.stopRunning() } }
     }
 
     override func viewDidLayoutSubviews() {
