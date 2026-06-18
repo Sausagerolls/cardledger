@@ -59,6 +59,7 @@ struct InventoryView: View {
                     )
                 } else {
                     ScrollView {
+                      VStack(spacing: Theme.spacing2) {
                         Picker("Status", selection: $statusFilter) {
                             ForEach(StatusFilter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                         }
@@ -93,6 +94,7 @@ struct InventoryView: View {
                             .padding(.horizontal, Theme.spacing4)
                             .padding(.bottom, Theme.spacing6)
                         }
+                      }
                     }
                 }
             }
