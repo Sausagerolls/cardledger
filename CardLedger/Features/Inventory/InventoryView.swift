@@ -58,8 +58,9 @@ struct InventoryView: View {
                         message: "Tap + to log your first card with photos and a purchase price."
                     )
                 } else {
-                    ScrollView {
-                      VStack(spacing: Theme.spacing2) {
+                    // Filters are a FIXED header (outside the scroll view) so their taps
+                    // can't be swallowed by the scrolling card grid; only the grid scrolls.
+                    VStack(spacing: Theme.spacing2) {
                         Picker("Status", selection: $statusFilter) {
                             ForEach(StatusFilter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                         }
@@ -72,29 +73,31 @@ struct InventoryView: View {
                             EmptyStateView(icon: "magnifyingglass", title: "No matches",
                                            message: "Nothing matches your search or filter.")
                                 .padding(.top, Theme.spacing6)
+                            Spacer()
                         } else {
-                            LazyVGrid(columns: columns, spacing: Theme.spacing3) {
-                                ForEach(filtered) { card in
-                                    if isSelecting {
-                                        Button { toggle(card) } label: {
-                                            CardTile(card: card).environment(settings)
-                                                .overlay(alignment: .topLeading) { selectionMark(card) }
+                            ScrollView {
+                                LazyVGrid(columns: columns, spacing: Theme.spacing3) {
+                                    ForEach(filtered) { card in
+                                        if isSelecting {
+                                            Button { toggle(card) } label: {
+                                                CardTile(card: card).environment(settings)
+                                                    .overlay(alignment: .topLeading) { selectionMark(card) }
+                                            }
+                                            .buttonStyle(.plain)
+                                        } else {
+                                            NavigationLink {
+                                                CardDetailView(card: card)
+                                            } label: {
+                                                CardTile(card: card).environment(settings)
+                                            }
+                                            .buttonStyle(.plain)
                                         }
-                                        .buttonStyle(.plain)
-                                    } else {
-                                        NavigationLink {
-                                            CardDetailView(card: card)
-                                        } label: {
-                                            CardTile(card: card).environment(settings)
-                                        }
-                                        .buttonStyle(.plain)
                                     }
                                 }
+                                .padding(.horizontal, Theme.spacing4)
+                                .padding(.bottom, Theme.spacing6)
                             }
-                            .padding(.horizontal, Theme.spacing4)
-                            .padding(.bottom, Theme.spacing6)
                         }
-                      }
                     }
                 }
             }
